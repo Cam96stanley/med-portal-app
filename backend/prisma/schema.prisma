@@ -24,6 +24,7 @@ model User {
   profileImage String?
   email        String    @unique
   hash         String
+  hashedRt     String?
   role         Role      @default(PATIENT)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
