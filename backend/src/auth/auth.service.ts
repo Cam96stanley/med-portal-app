@@ -70,7 +70,7 @@ export class AuthService {
     };
   }
 
-  async signup(dto: AuthSignupDto) {
+  async signupPatient(dto: AuthSignupDto) {
     return this.signupUser(dto);
   }
 
@@ -88,15 +88,6 @@ export class AuthService {
       Username: email,
     });
     await this.client.send(command);
-
-    await this.prisma.user.update({
-      where: {
-        email,
-      },
-      data: {
-        isConfirmed: true,
-      },
-    });
 
     return {
       message: `Confirmation code sent to ${email}`,

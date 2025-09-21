@@ -19,8 +19,8 @@ export class AuthController {
   @Public()
   @Post('signup-patient')
   @HttpCode(HttpStatus.CREATED)
-  async signup(@Body() dto: AuthSignupDto) {
-    return this.authService.signup(dto);
+  async signupPatient(@Body() dto: AuthSignupDto) {
+    return this.authService.signupPatient(dto);
   }
 
   @Roles(Role.ADMIN)
