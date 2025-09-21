@@ -1,94 +1,127 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
-import { AuthDto, AuthLoginDto } from 'src/auth/dto';
-import { PrismaService } from 'src/prisma/prisma.service';
-import argon2 from 'argon2';
-import { JwtService } from '@nestjs/jwt';
+import {
+  AdminInitiateAuthCommand,
+  AuthFlowType,
+  CognitoIdentityProviderClient,
+  ConfirmSignUpCommand,
+  GlobalSignOutCommand,
+  ListUsersCommand,
+  ResendConfirmationCodeCommand,
+  SignUpCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Tokens } from 'src/auth/types';
+import { AuthLoginDto, AuthSignupDto } from 'src/auth/dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-    private config: ConfigService,
-  ) {}
+  private client: CognitoIdentityProviderClient;
+  private userPoolId: string;
+  private clientId: string;
 
-  async signup(dto: AuthDto): Promise<Tokens> {
-    const hash = await this.hashData(dto.password);
+  constructor(
+    private config: ConfigService,
+    private prisma: PrismaService,
+  ) {
+    this.client = new CognitoIdentityProviderClient({
+      region: this.config.get<string>('AWS_REGION')!,
+    });
+    this.userPoolId = this.config.get<string>('COGNITO_USER_POOL_ID')!;
+    this.clientId = this.config.get<string>('COGNITO_CLIENT_ID')!;
+  }
+
+  async signup(dto: AuthSignupDto) {
+    const command = new SignUpCommand({
+      ClientId: this.clientId,
+      Username: dto.email,
+      Password: dto.password,
+      UserAttributes: [
+        { Name: 'email', Value: dto.email },
+        { Name: 'name', Value: dto.name },
+      ],
+    });
+
+    await this.client.send(command);
 
     const newUser = await this.prisma.user.create({
       data: {
-        name: dto.name,
         email: dto.email,
-        hash,
+        name: dto.name,
       },
     });
 
-    const tokens = await this.getTokens(newUser.id, newUser.email);
-    await this.updateRTHash(newUser.id, tokens.refresh_token);
-    return tokens;
+    return newUser;
+  }
+
+  async resendConfirmationCode(email: string) {
+    const command = new ResendConfirmationCodeCommand({
+      ClientId: this.clientId,
+      Username: email,
+    });
+    return this.client.send(command);
+  }
+
+  async confirmSignup(email: string, code: string) {
+    const command = new ConfirmSignUpCommand({
+      ClientId: this.clientId,
+      Username: email,
+      ConfirmationCode: code,
+    });
+
+    return this.client.send(command);
   }
 
   async login(dto: AuthLoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email: dto.email,
+    const listUsersCommand = new ListUsersCommand({
+      UserPoolId: this.userPoolId,
+      Filter: `email = "${dto.email}"`,
+    });
+
+    const users = await this.client.send(listUsersCommand);
+    if (!users.Users?.length)
+      throw new UnauthorizedException('Invalid credentials');
+    const username = users.Users[0].Username!;
+
+    const command = new AdminInitiateAuthCommand({
+      UserPoolId: this.userPoolId,
+      ClientId: this.clientId,
+      AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
+      AuthParameters: {
+        USERNAME: username,
+        PASSWORD: dto.password,
       },
     });
 
-    if (!user) {
-      throw new ForbiddenException('Email and/or password are inccorect');
+    try {
+      const response = await this.client.send(command);
+
+      const user = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+      });
+
+      return {
+        user,
+        tokens: response.AuthenticationResult,
+      };
+    } catch {
+      throw new UnauthorizedException('Invalide credentials');
     }
+  }
 
-    const passwordMatches = await argon2.verify(user.hash, dto.password);
-
-    if (!passwordMatches) {
-      throw new ForbiddenException('Email and/or password are inccorect');
+  async signout(accessToken: string) {
+    try {
+      const command = new GlobalSignOutCommand({
+        AccessToken: accessToken,
+      });
+      await this.client.send(command);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        if (err.name === 'NotAuthorizedException') {
+          throw new UnauthorizedException('Access token is invalid or revoked');
+        }
+        throw new Error(err.message);
+      }
+      throw new Error('Unknown error during signout');
     }
-
-    const tokens = await this.getTokens(user.id, user.email);
-    await this.updateRTHash(user.id, tokens.refresh_token);
-    return tokens;
-  }
-
-  logout() {}
-
-  refreshTokens() {}
-
-  async hashData(data: string) {
-    return await argon2.hash(data);
-  }
-
-  async getTokens(userId: string, email: string): Promise<Tokens> {
-    const [at, rt] = await Promise.all([
-      this.jwtService.signAsync(
-        { sub: userId, email },
-        {
-          secret: this.config.get<string>('AT_SECRET_KEY'),
-          expiresIn: 60 * 15,
-        },
-      ),
-      this.jwtService.signAsync(
-        { sub: userId, email },
-        {
-          secret: this.config.get<string>('RT_SECRET_KEY'),
-          expiresIn: 60 * 60 * 24 * 7,
-        },
-      ),
-    ]);
-    return { access_token: at, refresh_token: rt };
-  }
-
-  async updateRTHash(userId: string, rt: string) {
-    const hash = await this.hashData(rt);
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        hashedRt: hash,
-      },
-    });
   }
 }
