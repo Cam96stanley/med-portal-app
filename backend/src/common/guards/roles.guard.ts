@@ -10,6 +10,7 @@ import { JwtPayload } from 'jsonwebtoken';
 export type CognitoUser = JwtPayload & {
   sub: string;
   email?: string;
+  'cognito:groups'?: string[];
   [key: string]: any;
 };
 
@@ -27,11 +28,12 @@ export class RolesGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<{ user?: CognitoUser }>();
     const user = request.user;
+
     if (!user) throw new ForbiddenException('No user found');
 
-    const userRoles =
-      (user['cognito:groups'] as string[]) || (user.roles as string[]) || [];
-    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+    const userGroups = user['cognito:groups'] || [];
+
+    const hasRole = requiredRoles.some((role) => userGroups.includes(role));
 
     if (!hasRole)
       throw new ForbiddenException(

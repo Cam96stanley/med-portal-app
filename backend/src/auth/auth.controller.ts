@@ -8,18 +8,35 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthLoginDto, AuthSignupDto } from 'src/auth/dto';
-import { CognitoAuthGuard } from 'src/common/guards';
-import { GetCurrentUser, Public } from 'src/common/decorators';
+import { CognitoAuthGuard, RolesGuard } from 'src/common/guards';
+import { GetCurrentUser, Public, Roles } from 'src/common/decorators';
+import { Role } from '../common/types';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
-  @Post('signup')
+  @Post('signup-patient')
   @HttpCode(HttpStatus.CREATED)
   async signup(@Body() dto: AuthSignupDto) {
     return this.authService.signup(dto);
+  }
+
+  @Roles(Role.ADMIN)
+  @UseGuards(RolesGuard)
+  @Post('signup-provider')
+  @HttpCode(HttpStatus.CREATED)
+  async signupProvider(@Body() dto: AuthSignupDto) {
+    return this.authService.signupProvider(dto);
+  }
+
+  @Roles(Role.ADMIN)
+  @UseGuards(RolesGuard)
+  @Post('signup-admin')
+  @HttpCode(HttpStatus.CREATED)
+  async signupAdmin(@Body() dto: AuthSignupDto) {
+    return this.authService.signupAdmin(dto);
   }
 
   @Public()

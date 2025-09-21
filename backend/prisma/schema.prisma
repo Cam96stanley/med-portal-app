@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   PATIENT
   PROVIDER
+  ADMIN
 }
 
 enum Status {
@@ -24,6 +25,7 @@ model User {
   profileImage String?
   email        String    @unique
   role         Role      @default(PATIENT)
+  isConfirmed  Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
@@ -76,12 +78,12 @@ model Diagnosis {
   id                 String            @id @default(uuid())
   patient            User              @relation("DiagnosesForPatient", fields: [patientId], references: [id], map: "Diagnosis_patient_fkey")
   patientId          String
-  provider           User?             @relation("DiagnosesByProvider", fields: [providerId], references: [id], map: "Diagnosis_provider_fkey")
-  providerId         String?
+  provider           User             @relation("DiagnosesByProvider", fields: [providerId], references: [id], map: "Diagnosis_provider_fkey")
+  providerId         String
   externalProvider   ExternalProvider? @relation(fields: [externalProviderId], references: [id], map: "Diagnosis_externalProvider_fkey")
   externalProviderId String?
   diagnosisName      String
-  diagnosisCode      Int
+  diagnosisCode      String
   dateDiagnosed      DateTime          @default(now())
   isActive           Boolean           @default(true)
   notes              String?

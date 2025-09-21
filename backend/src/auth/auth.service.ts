@@ -1,4 +1,5 @@
 import {
+  AdminAddUserToGroupCommand,
   AdminInitiateAuthCommand,
   AuthFlowType,
   CognitoIdentityProviderClient,
@@ -30,7 +31,10 @@ export class AuthService {
     this.clientId = this.config.get<string>('COGNITO_CLIENT_ID')!;
   }
 
-  async signup(dto: AuthSignupDto) {
+  async signupUser(
+    dto: AuthSignupDto,
+    role?: 'PATIENT' | 'PROVIDER' | 'ADMIN',
+  ) {
     const command = new SignUpCommand({
       ClientId: this.clientId,
       Username: dto.email,
@@ -43,14 +47,39 @@ export class AuthService {
 
     await this.client.send(command);
 
-    const newUser = await this.prisma.user.create({
+    if (role) {
+      await this.client.send(
+        new AdminAddUserToGroupCommand({
+          UserPoolId: this.userPoolId,
+          Username: dto.email,
+          GroupName: role ?? 'PATIENT',
+        }),
+      );
+    }
+
+    await this.prisma.user.create({
       data: {
         email: dto.email,
         name: dto.name,
+        role: role ?? 'PATIENT',
       },
     });
 
-    return newUser;
+    return {
+      message: `Confirmation code sent to ${dto.email}`,
+    };
+  }
+
+  async signup(dto: AuthSignupDto) {
+    return this.signupUser(dto);
+  }
+
+  async signupProvider(dto: AuthSignupDto) {
+    return this.signupUser(dto, 'PROVIDER');
+  }
+
+  async signupAdmin(dto: AuthSignupDto) {
+    return this.signupUser(dto, 'ADMIN');
   }
 
   async resendConfirmationCode(email: string) {
@@ -58,7 +87,20 @@ export class AuthService {
       ClientId: this.clientId,
       Username: email,
     });
-    return this.client.send(command);
+    await this.client.send(command);
+
+    await this.prisma.user.update({
+      where: {
+        email,
+      },
+      data: {
+        isConfirmed: true,
+      },
+    });
+
+    return {
+      message: `Confirmation code sent to ${email}`,
+    };
   }
 
   async confirmSignup(email: string, code: string) {
@@ -68,7 +110,20 @@ export class AuthService {
       ConfirmationCode: code,
     });
 
-    return this.client.send(command);
+    await this.client.send(command);
+
+    await this.prisma.user.update({
+      where: {
+        email,
+      },
+      data: {
+        isConfirmed: true,
+      },
+    });
+
+    return {
+      message: 'Email Verified!',
+    };
   }
 
   async login(dto: AuthLoginDto) {
