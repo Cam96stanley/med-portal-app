@@ -1,5 +1,6 @@
 import {
   AdminAddUserToGroupCommand,
+  AdminGetUserCommand,
   AdminInitiateAuthCommand,
   AuthFlowType,
   CognitoIdentityProviderClient,
@@ -57,11 +58,28 @@ export class AuthService {
       );
     }
 
+    const userResponse = await this.client.send(
+      new AdminGetUserCommand({
+        UserPoolId: this.userPoolId,
+        Username: dto.email,
+      }),
+    );
+
+    const subAttr = userResponse.UserAttributes?.find(
+      (attr) => attr.Name === 'sub',
+    );
+    const cognitoSub = subAttr?.Value;
+
+    if (!cognitoSub) {
+      throw new Error('Could not retrieve Cognito sub for user');
+    }
+
     await this.prisma.user.create({
       data: {
         email: dto.email,
         name: dto.name,
         role: role ?? 'PATIENT',
+        cognitoSub,
       },
     });
 

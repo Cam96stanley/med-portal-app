@@ -21,6 +21,7 @@ enum Status {
 
 model User {
   id           String    @id @default(uuid())
+  cognitoSub   String    @unique
   name         String
   profileImage String?
   email        String    @unique
