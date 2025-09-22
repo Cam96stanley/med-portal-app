@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateDiagnosisDto } from 'src/diagnosis/dto';
+import { CreateDiagnosisDto, UpdateDiagnosisDto } from 'src/diagnosis/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class DiagnosisService {
     });
 
     if (!provider) {
-      throw new Error('User not found');
+      throw new Error('Provider not found');
     }
 
     const newDiagnosis = await this.prisma.diagnosis.create({
@@ -29,5 +29,16 @@ export class DiagnosisService {
     });
 
     return newDiagnosis;
+  }
+
+  async updateDiagnosis(diagnosisId: string, dto: UpdateDiagnosisDto) {
+    const updateDiagnosis = await this.prisma.diagnosis.update({
+      where: { id: diagnosisId },
+      data: {
+        ...dto,
+      },
+    });
+
+    return updateDiagnosis;
   }
 }

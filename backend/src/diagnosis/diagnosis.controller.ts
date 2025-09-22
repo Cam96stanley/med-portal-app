@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { GetCurrentUser, Roles } from 'src/common/decorators';
 import { DiagnosisService } from 'src/diagnosis/diagnosis.service';
-import { CreateDiagnosisDto } from 'src/diagnosis/dto';
+import { CreateDiagnosisDto, UpdateDiagnosisDto } from 'src/diagnosis/dto';
 import { Role } from 'src/common/types';
 import { RolesGuard } from 'src/common/guards';
 
@@ -27,9 +27,7 @@ export class DiagnosisController {
     return this.diagnosisService.createDiagnosis(providerId, dto);
   }
 
-  getAllDiagnoses() {}
-
-  getDiagnosis() {}
-
-  updateDiagnosis() {}
+  updateDiagnosis(diagnosisId: string, @Body() dto: UpdateDiagnosisDto) {
+    return this.diagnosisService.updateDiagnosis(diagnosisId, dto);
+  }
 }
