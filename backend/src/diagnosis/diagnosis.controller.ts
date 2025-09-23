@@ -3,6 +3,8 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -27,7 +29,13 @@ export class DiagnosisController {
     return this.diagnosisService.createDiagnosis(providerId, dto);
   }
 
-  updateDiagnosis(diagnosisId: string, @Body() dto: UpdateDiagnosisDto) {
+  @Roles(Role.PROVIDER)
+  @UseGuards(RolesGuard)
+  @Patch('/:diagnosisId')
+  updateDiagnosis(
+    @Param('diagnosisId') diagnosisId: string,
+    @Body() dto: UpdateDiagnosisDto,
+  ) {
     return this.diagnosisService.updateDiagnosis(diagnosisId, dto);
   }
 }
