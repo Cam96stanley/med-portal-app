@@ -32,7 +32,8 @@ export class DiagnosisController {
 
   @Roles(Role.PROVIDER)
   @UseGuards(RolesGuard)
-  @Patch('/:diagnosisId')
+  @Patch(':diagnosisId')
+  @HttpCode(HttpStatus.OK)
   updateDiagnosis(
     @Param('diagnosisId') diagnosisId: string,
     @Body() dto: UpdateDiagnosisDto,
@@ -40,7 +41,21 @@ export class DiagnosisController {
     return this.diagnosisService.updateDiagnosis(diagnosisId, dto);
   }
 
+  @Roles(Role.PROVIDER)
+  @UseGuards(RolesGuard)
+  @Get(':patientId')
+  @HttpCode(HttpStatus.OK)
+  getPatientDiagnoses(
+    @GetCurrentUser('sub') providerId: string,
+    @Param('patientId') patientId: string,
+  ) {
+    return this.diagnosisService.getPatientDiagnoses(providerId, patientId);
+  }
+
+  @Roles(Role.PROVIDER)
+  @UseGuards(RolesGuard)
   @Get('my-patients')
+  @HttpCode(HttpStatus.OK)
   getAllProviderPatients(@GetCurrentUser('sub') providerId: string) {
     return this.diagnosisService.getAllProviderPatients(providerId);
   }
