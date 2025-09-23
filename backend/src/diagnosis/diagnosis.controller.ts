@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
@@ -37,5 +38,10 @@ export class DiagnosisController {
     @Body() dto: UpdateDiagnosisDto,
   ) {
     return this.diagnosisService.updateDiagnosis(diagnosisId, dto);
+  }
+
+  @Get('my-patients')
+  getAllProviderPatients(@GetCurrentUser('sub') providerId: string) {
+    return this.diagnosisService.getAllProviderPatients(providerId);
   }
 }

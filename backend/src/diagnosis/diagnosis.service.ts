@@ -41,4 +41,35 @@ export class DiagnosisService {
 
     return updateDiagnosis;
   }
+
+  async getAllProviderPatients(providerId: string) {
+    const provider = await this.prisma.user.findUnique({
+      where: { cognitoSub: providerId },
+    });
+
+    if (!provider) throw new Error('No provider found');
+
+    const patients = await this.prisma.user.findMany({
+      where: {
+        role: 'PATIENT',
+        diagnosesAsPatient: { some: { providerId: provider.id } },
+      },
+      select: {
+        id: true,
+        name: true,
+        diagnosesAsPatient: {
+          where: { providerId: provider.id },
+          select: {
+            diagnosisName: true,
+            diagnosisCode: true,
+            dateDiagnosed: true,
+            notes: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    return patients;
+  }
 }
