@@ -63,7 +63,7 @@ model ExternalProvider {
   id             String          @id @default(uuid())
   name           String
   facility       String?
-  officeNumber   String?
+  officeNumber    String?
   diagnoses      Diagnosis[]
   medications    Medication[]
   goals          Goal[]
